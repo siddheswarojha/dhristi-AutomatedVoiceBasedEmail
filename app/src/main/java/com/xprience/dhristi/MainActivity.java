@@ -6,6 +6,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import android.content.Intent;
 import android.os.Bundle;
 import android.speech.RecognizerIntent;
+import android.speech.tts.TextToSpeech;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -21,7 +22,9 @@ import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
 
 import org.json.JSONException;
+import org.json.JSONObject;
 
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Locale;
@@ -33,8 +36,9 @@ public class MainActivity extends AppCompatActivity {
     private ImageView iv_mic,iv_mic1;
     private TextView tv_Speech_to_text,tv_Speech_to_text1;
     private static final int REQUEST_CODE_SPEECH_INPUT = 1;
-    private static final int REQUEST_CODE_SPEECH_INPUT1 = 1;
+    private static final int REQUEST_CODE_SPEECH_INPUT1 = 2;
     private Button btnSendMail;
+    private TextToSpeech textToSpeech;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -46,6 +50,15 @@ public class MainActivity extends AppCompatActivity {
         iv_mic1 = findViewById(R.id.iv_mic1);
         tv_Speech_to_text1 = findViewById(R.id.tv_speech_to_text1);
         btnSendMail = findViewById(R.id.btnSend);
+
+        textToSpeech =new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener() {
+            @Override
+            public void onInit(int status) {
+                if(status != TextToSpeech.ERROR) {
+                    textToSpeech.setLanguage(Locale.UK);
+                }
+            }
+        });
 
         iv_mic.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -94,6 +107,7 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View view) {
                 String receiver = tv_Speech_to_text.getText().toString().trim();
                 String mailBody = tv_Speech_to_text1.getText().toString();
+
                 sendMail(receiver,mailBody);
 
             }
@@ -103,20 +117,17 @@ public class MainActivity extends AppCompatActivity {
     private void sendMail(String receiver, String mailBody) {
 
         RequestQueue requestQueue = Volley.newRequestQueue(MainActivity.this);
-        //todo api integration
-        String url = "";
+
+        String url = "http://ec2-13-232-128-183.ap-south-1.compute.amazonaws.com:8080/vbms/api/v1/sendMail/";
         StringRequest stringRequest = new StringRequest(Request.Method.POST, url, new Response.Listener<String>() {
             @Override
             public void onResponse(String response) {
-
-                try {
-                    Log.d("message","mailSent");
-
-
-
-                } catch (JSONException e) {
-                    e.printStackTrace();
+                if(response=="Mail Sent Successfully..." ){
+                    Toast.makeText(MainActivity.this, "Mail Sent Successfully...", Toast.LENGTH_SHORT).show();
+                    textToSpeech.speak("Mail Sent Successfully", TextToSpeech.QUEUE_FLUSH, null);
                 }
+
+
             }
         }, new Response.ErrorListener() {
             @Override
@@ -125,11 +136,21 @@ public class MainActivity extends AppCompatActivity {
             }
         }){
             @Override
-            protected Map<String,String> getParams(){
-                Map<String,String> params = new HashMap<String, String>();
-                params.put("recipient",receiver);
-                params.put("body",mailBody);
-                return params;
+            public String getBodyContentType() {
+                return "application/json; charset=utf-8";
+            }
+
+            @Override
+            public byte[] getBody() {
+                try {
+                    JSONObject jsonBody = new JSONObject();
+                    jsonBody.put("key1", "value1");
+                    jsonBody.put("key2", "value2");
+                    return jsonBody.toString().getBytes("utf-8");
+                } catch (UnsupportedEncodingException | JSONException e) {
+                    Log.e("Error", "Error while creating request body", e);
+                    return null;
+                }
             }
         };
         requestQueue.add(stringRequest);
